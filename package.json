@@ -1,0 +1,36 @@
+{
+  "name": "temporizador",
+  "version": "1.0.0",
+  "description": "Temporizador",
+  "main": "main.js",
+  "author": "Samuel Silva",
+  "license": "ISC",
+
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable"
+  },
+
+  "devDependencies": {
+    "electron": "^39.8.10",
+    "electron-builder": "^26.15.3"
+  },
+
+"build": {
+  "appId": "pt.igreja.temporizador",
+  "productName": "Temporizador Igreja",
+
+  "directories": {
+    "output": "dist"
+  },
+
+  "win": {
+    "target": "portable",
+    "icon": "assets/icon.ico"
+  },
+
+  "portable": {
+    "artifactName": "Temporizador Igreja.exe"
+  }
+}
+}

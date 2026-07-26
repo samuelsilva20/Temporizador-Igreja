@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temporizador Oficial Estável</title>
+    <link rel="stylesheet" href="estilo.css">
+</head>
+
+<body>
+    <div id="painel-config">
+        <header class="cabecalho-operador">
+            <div>
+                <p class="sobretitulo">CONTROLO DO OPERADOR</p>
+                <h1>Temporizador</h1>
+            </div>
+            <p id="estado-execucao" class="estado-execucao">PRONTO PARA INICIAR</p>
+        </header>
+
+        <main class="layout-operador">
+            <section class="coluna-controlos">
+                <h2>Configuração</h2>
+
+                <div class="campo">
+                    <label for="selecao-modo">Escolha a Predefinição:</label>
+                    <select id="selecao-modo" onchange="atualizarCamposPorPreset()">
+                        <option value="sabado" selected>Sábado (10:45 → 10:50)</option>
+                        <option value="personalizado">Horário Personalizado</option>
+                        <option value="padrao5">Temporizador 5min (Teste)</option>
+                    </select>
+                </div>
+
+                <div id="configuracao-horas" class="linha-dupla">
+                    <div class="campo" style="flex: 1;">
+                        <label>Hora de Início:</label>
+                        <input type="time" id="hora-inicio" value="10:45">
+
+                        <div id="avancado-inicio" class="avancado-wrapper">
+                            <button type="button" class="btn-seta-avancado" onclick="alternarPainelFlutuante('avancado-inicio')" aria-label="Configuração avançada">▾</button>
+                            <div class="painel-flutuante">
+                                <label for="limiar-exibicao-tempo">Mostrar tempo até ao fim a partir de:</label>
+                                <input type="text" id="limiar-exibicao-tempo" value="60:00" placeholder="MM:SS">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="campo" style="flex: 1;">
+                        <label>Hora de Fim:</label>
+                        <input type="time" id="hora-alvo" value="10:50">
+
+                        <div id="avancado-fim" class="avancado-wrapper">
+                            <button type="button" class="btn-seta-avancado" onclick="alternarPainelFlutuante('avancado-fim')" aria-label="Configuração avançada">▾</button>
+                            <div class="painel-flutuante">
+                                <label for="duracao-contagem-final">Esconder a hora a partir de:</label>
+                                <input type="text" id="duracao-contagem-final" value="05:00" placeholder="MM:SS">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn-iniciar" onclick="validarEIniciar()">
+                    Iniciar / Reiniciar Temporizador
+                </button>
+
+                <div id="controlos-rapidos" class="controlos-rapidos">
+                    <button class="btn-ajuste" onclick="alterarTempo(-10)">−10 s</button>
+                    <button class="btn-ajuste" onclick="alternarPausa()">Pausar / Retomar</button>
+                    <button class="btn-ajuste" onclick="alterarTempo(10)">+10 s</button>
+                </div>
+
+                <p id="texto-atalhos" class="atalhos">Atalhos: Espaço = pausar · ← / → = −10 s / +10 s · ESC = terminar</p>
+            </section>
+
+            <section class="coluna-preview-operador">
+                <h2>Preview em execução</h2>
+            
+                <div class="preview-operador">
+            
+                    <div id="preview-fase1" class="preview-fase1">
+            
+                        <div id="preview-tempo" class="numero-preview">
+                            00:00:00
+                        </div>
+            
+                        <div id="preview-hora" class="hora-preview">
+                            00:00:00
+                        </div>
+            
+                    </div>
+            
+                    <div id="preview-operador" class="numero-preview-operador" style="display: none;">
+                        05:00
+                    </div>
+            
+                </div>
+            
+                <p class="legenda-preview">
+                    Este é o conteúdo enviado para a projeção e para o retorno.
+                </p>
+            
+            </section>
+
+            <section id="painel-monitores">
+                <div class="cabecalho-telas">
+                    <h2>Telas da igreja</h2>
+                    <button class="btn-monitor" onclick="detetarMonitores()">Detetar Monitores</button>
+                </div>
+
+                <div class="cartoes-telas">
+                    <section id="cartao-palco" class="cartao-tela inativa">
+                        <div class="titulo-tela">
+                            <h3>Tela do Palco</h3>
+                            <p id="estado-palco" class="estado-tela">INATIVA</p>
+                        </div>
+                        <label for="monitor-palco">Monitor de projeção:</label>
+                        <select id="monitor-palco" disabled>
+                            <option value="">Detete primeiro os monitores</option>
+                        </select>
+                        <button id="botao-palco" class="btn-tela btn-tela-inativa" onclick="alternarTela('palco')">
+                            Ativar Tela do Palco
+                        </button>
+                    </section>
+
+                    <section id="cartao-retorno" class="cartao-tela inativa">
+                        <div class="titulo-tela">
+                            <h3>Tela de Retorno</h3>
+                            <p id="estado-retorno" class="estado-tela">INATIVA</p>
+                        </div>
+                        <label for="monitor-retorno">Monitor de retorno:</label>
+                        <select id="monitor-retorno" disabled>
+                            <option value="">Detete primeiro os monitores</option>
+                        </select>
+                        <button id="botao-retorno" class="btn-tela btn-tela-inativa" onclick="alternarTela('retorno')">
+                            Ativar Tela de Retorno
+                        </button>
+                    </section>
+                </div>
+
+                <div id="estado-monitor"></div>
+            </section>
+        </main>
+    </div>
+
+    <div id="esquerda" class="zona-clique" onclick="alterarTempo(-10)"></div>
+    <div id="direita" class="zona-clique" onclick="alterarTempo(10)"></div>
+    <div id="timer">
+    
+        <div id="timer-fase1" class="temporizador-fase1">
+    
+            <div id="timer-tempo" class="numero-tempo">
+                00:00:00
+            </div>
+    
+            <div id="timer-hora" class="hora-atual">
+                00:00:00
+            </div>
+    
+        </div>
+    
+        <div id="timer-contagem" class="numero-contagem" style="display: none;">
+            05:00
+        </div>
+    
+    </div>
+    <script src="temporizador-core-browser.js"></script>
+    <script src="temporizador.js"></script>
+</body>
+</html>
