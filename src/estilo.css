@@ -22,8 +22,8 @@ body {
 }
 
 #painel-config {
-    width: min(1180px, calc(100vw - 48px));
-    max-height: calc(100vh - 48px);
+    width: calc(100vw - 48px);
+    height: calc(100vh - 48px);
     margin: 24px auto;
     overflow: auto;
     box-sizing: border-box;
@@ -32,6 +32,8 @@ body {
     border-radius: 14px;
     background: #1a1a1a;
     box-shadow: 0 10px 36px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
 }
 
 .cabecalho-operador,
@@ -92,10 +94,11 @@ h3 {
 }
 
 .layout-operador {
-    display: grid;
-    grid-template-columns: minmax(300px, 0.85fr) minmax(360px, 1.15fr);
+    display: flex;
     gap: 18px;
     margin-top: 18px;
+    flex: 1;
+    min-height: 0;
 }
 
 .coluna-controlos,
@@ -108,8 +111,31 @@ h3 {
     background: #202020;
 }
 
+.coluna-controlos {
+    flex: 0.85 1 300px;
+    min-width: 300px;
+    overflow: auto;
+}
+
+.coluna-direita {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    flex: 1.15 1 360px;
+    min-width: 360px;
+    min-height: 0;
+}
+
+.coluna-preview-operador {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 1;
+    min-height: 0;
+}
+
 #painel-monitores {
-    grid-column: 1 / -1;
+    flex-shrink: 0;
+    overflow: auto;
 }
 
 .campo {
@@ -244,7 +270,11 @@ button:active {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 210px;
+    width: 100%;
+    aspect-ratio: 2.5 / 1;
+    max-height: 36vh;
+    flex-shrink: 1;
+    min-height: 0;
     border: 1px solid #303030;
     border-radius: 8px;
     background: #000;
@@ -432,8 +462,9 @@ body.modo-exportado #timer {
 
 @media (max-width: 820px) {
     body { overflow: auto; }
-    #painel-config { width: calc(100vw - 24px); max-height: none; margin: 12px auto; }
-    .layout-operador { grid-template-columns: 1fr; }
-    #painel-monitores { grid-column: auto; }
+    #painel-config { width: calc(100vw - 24px); height: auto; margin: 12px auto; }
+    .layout-operador { flex-direction: column; flex: none; }
+    .coluna-controlos, .coluna-direita { flex: none; min-width: 0; }
+    .coluna-preview-operador { width: 100%; }
     .cartoes-telas { grid-template-columns: 1fr; }
 }
