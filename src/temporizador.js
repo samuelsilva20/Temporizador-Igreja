@@ -11,9 +11,14 @@ let momentoPausa = null;
 
 let dataInicioAgendada = null;
 let dataFimAgendada = null;
+let dataAtivacaoPalco = null;
+let dataAtivacaoRetorno = null;
 let instanteAtual = null;
 
 let faseTemporizador = 'parado';
+
+let ultimoTextoTempo = '';
+let ultimaHoraFormatada = '';
 
 /*
 Estados possíveis:
@@ -49,6 +54,10 @@ const elementos = {
     duracaoContagemFinal: document.getElementById('duracao-contagem-final'),
     limiarExibicaoTempo: document.getElementById('limiar-exibicao-tempo'),
 
+    configuracaoAtivacaoTelas: document.getElementById('configuracao-ativacao-telas'),
+    horaAtivacaoPalco: document.getElementById('hora-ativacao-palco'),
+    horaAtivacaoRetorno: document.getElementById('hora-ativacao-retorno'),
+
     previewFase1: document.getElementById('preview-fase1'),
     previewTempo: document.getElementById('preview-tempo'),
     previewHora: document.getElementById('preview-hora'),
@@ -65,8 +74,12 @@ const elementos = {
 const modoExportado =
     new URLSearchParams(window.location.search).get('modo') === 'exportado';
 
+const telaTipo =
+    new URLSearchParams(window.location.search).get('tela');
+
 const {
     formatarHora,
+    aplicarHoraCampo,
     criarConfiguracaoTemporizador
 } = window.temporizadorCore || {};
 
@@ -104,14 +117,14 @@ function obterFaseAtual() {
 
     const agora = new Date();
 
-    if (modoSabadoAtivo) {
+    if (
+        dataInicioAgendada &&
+        agora < dataInicioAgendada
+    ) {
+        return 'aguardandoPublico';
+    }
 
-        if (
-            dataInicioAgendada &&
-            agora < dataInicioAgendada
-        ) {
-            return 'aguardandoPublico';
-        }
+    if (modoSabadoAtivo) {
 
         const inicioContagemFinalSabado =
             new Date(
@@ -234,6 +247,25 @@ function calcularCor(segundos, duracaoTotalSegundos = LIMITES_COR.inicio) {
     return 'rgb(255,0,0)';
 }
 
+function deveExibirTela(dataAtivacao) {
+    if (!dataFimAgendada) {
+        return false;
+    }
+
+    if (
+        dataInicioAgendada &&
+        instanteAtual < dataInicioAgendada
+    ) {
+        return false;
+    }
+
+    if (!(dataAtivacao instanceof Date)) {
+        return false;
+    }
+
+    return instanteAtual >= dataAtivacao;
+}
+
 function obterEstadoTemporizador(cor) {
 
     return {
@@ -241,13 +273,19 @@ function obterEstadoTemporizador(cor) {
         fase: faseTemporizador,
 
         tempo:
-            elementos.timerTempo.textContent,
+            ultimoTextoTempo,
 
         hora:
-            elementos.timerHora.textContent,
+            ultimaHoraFormatada,
 
         contagem:
-            elementos.timerContagem.textContent,
+            ultimoTextoTempo,
+
+        mostrarPalco:
+            deveExibirTela(dataAtivacaoPalco),
+
+        mostrarRetorno:
+            deveExibirTela(dataAtivacaoRetorno),
 
         cor,
 
@@ -410,6 +448,28 @@ function atualizarCamposPorPreset() {
         elementos.horaFim.disabled =
             false;
 
+        const dataFimSabado =
+            new Date(agora);
+
+        dataFimSabado.setHours(10, 50, 0, 0);
+
+        elementos.configuracaoAtivacaoTelas.style.display =
+            'flex';
+
+        elementos.horaAtivacaoPalco.value =
+            formatarHora(
+                new Date(dataFimSabado.getTime() - LIMITES_COR.inicio * 1000)
+            );
+
+        elementos.horaAtivacaoRetorno.value =
+            elementos.horaInicio.value;
+
+        elementos.horaAtivacaoPalco.disabled =
+            false;
+
+        elementos.horaAtivacaoRetorno.disabled =
+            false;
+
         return;
     }
 
@@ -440,6 +500,29 @@ function atualizarCamposPorPreset() {
         elementos.horaFim.disabled =
             false;
 
+        const duracaoContagemFinalAtual =
+            parseDuracaoParaSegundos(
+                elementos.duracaoContagemFinal.value,
+                LIMITES_COR.inicio
+            );
+
+        elementos.configuracaoAtivacaoTelas.style.display =
+            'flex';
+
+        elementos.horaAtivacaoPalco.value =
+            formatarHora(
+                new Date(dataFimPadrao.getTime() - duracaoContagemFinalAtual * 1000)
+            );
+
+        elementos.horaAtivacaoRetorno.value =
+            elementos.horaInicio.value;
+
+        elementos.horaAtivacaoPalco.disabled =
+            false;
+
+        elementos.horaAtivacaoRetorno.disabled =
+            false;
+
         return;
     }
 
@@ -456,6 +539,15 @@ function atualizarCamposPorPreset() {
         true;
 
     elementos.horaFim.disabled =
+        true;
+
+    elementos.configuracaoAtivacaoTelas.style.display =
+        'none';
+
+    elementos.horaAtivacaoPalco.disabled =
+        true;
+
+    elementos.horaAtivacaoRetorno.disabled =
         true;
 }
 
@@ -567,6 +659,16 @@ function validarEIniciar() {
         iniciarTemporizadorPadrao();
     }
 
+    dataAtivacaoPalco =
+        elementos.horaAtivacaoPalco.value
+            ? aplicarHoraCampo(dataFimAgendada, elementos.horaAtivacaoPalco.value)
+            : new Date(dataInicioAgendada);
+
+    dataAtivacaoRetorno =
+        elementos.horaAtivacaoRetorno.value
+            ? aplicarHoraCampo(dataInicioAgendada, elementos.horaAtivacaoRetorno.value)
+            : new Date(dataInicioAgendada);
+
     elementos.timer.classList.remove('piscar');
 
     atualizarContagem();
@@ -577,54 +679,6 @@ function validarEIniciar() {
     );
 
     atualizarEstadoOperador();
-}
-
-function atualizarTemporizadorSabado() {
-    const agora = new Date();
-
-    if (agora < dataInicioAgendada) {
-        tempoRestante =
-            Math.floor(
-                (
-                    dataInicioAgendada.getTime() -
-                    agora.getTime()
-                ) / 1000
-            );
-
-        return;
-    }
-
-    if (agora < dataFimAgendada) {
-        tempoRestante =
-            Math.floor(
-                (
-                    dataFimAgendada.getTime() -
-                    agora.getTime()
-                ) / 1000
-            );
-
-        return;
-    }
-
-    const novoAgendamento =
-        window.temporizadorCore.obterProximoSabado(
-            elementos.horaInicio.value,
-            elementos.horaFim.value
-        );
-
-    dataInicioAgendada =
-        novoAgendamento.inicio;
-
-    dataFimAgendada =
-        novoAgendamento.fim;
-
-    tempoRestante =
-        Math.floor(
-            (
-                dataInicioAgendada.getTime() -
-                agora.getTime()
-            ) / 1000
-        );
 }
 
 function formatarTempo(segundos) {
@@ -670,10 +724,6 @@ function atualizarContagem() {
     faseTemporizador =
         obterFaseAtual();
 
-    if (modoSabadoAtivo) {
-        atualizarTemporizadorSabado();
-    }
-
     if (
         dataFimAgendada &&
         dataFimAgendada instanceof Date
@@ -693,6 +743,9 @@ function atualizarContagem() {
     }
     const texto =
         formatarTempo(tempoRestante);
+
+    ultimoTextoTempo =
+        texto;
 
     const mostrarContagem =
         faseTemporizador === 'contagem';
@@ -728,15 +781,8 @@ function atualizarContagem() {
         aguardandoPublico
     );
 
-    let corAtual =
-        'rgb(255,255,255)';
-
-    if (mostrarContagem) {
-
-        corAtual =
-            calcularCor(tempoRestante, duracaoContagemFinalSegundos);
-
-    }
+    const corAtual =
+        calcularCor(tempoRestante, duracaoContagemFinalSegundos);
 
     elementos.timerFase1.style.display =
         (mostrarContagem || aguardandoPublico) ? 'none' : 'flex';
@@ -765,6 +811,9 @@ function atualizarContagem() {
                 second: '2-digit'
             }
         );
+
+    ultimaHoraFormatada =
+        horaAtual;
 
     if (aguardandoPublico) {
 
@@ -813,8 +862,7 @@ function atualizarContagem() {
 
     elementos.timer.classList.toggle(
         'piscar',
-        tempoRestante === 0 &&
-        !modoSabadoAtivo
+        tempoRestante === 0
     );
 
     atualizarPrevisualizacoes(corAtual);
@@ -823,10 +871,7 @@ function atualizarContagem() {
 
     atualizarEstadoOperador();
 
-    if (
-        tempoRestante === 0 &&
-        !modoSabadoAtivo
-    ) {
+    if (tempoRestante === 0) {
         pararIntervalo();
 
         return;
@@ -972,13 +1017,20 @@ async function detetarMonitores() {
                         ? `Monitor ${monitor.indice + 1} — PRINCIPAL`
                         : `Monitor ${monitor.indice + 1}`;
 
+                const posicaoHorizontal =
+                    monitor.x > 0
+                        ? 'DIREITA'
+                        : monitor.x < 0
+                            ? 'ESQUERDA'
+                            : '';
+
                 opcao.value =
                     monitor.id;
 
                 opcao.textContent =
-                    `${identificacao} — ` +
-                    `${monitor.largura} × ${monitor.altura} — ` +
-                    `posição ${monitor.x}, ${monitor.y}`;
+                    posicaoHorizontal
+                        ? `${identificacao} — ${posicaoHorizontal}`
+                        : identificacao;
 
                 selecao.appendChild(opcao);
             });
@@ -1005,14 +1057,27 @@ function selecionarMonitoresPorPredefinicao() {
             monitor => !monitor.principal
         );
 
+    const monitorDireita =
+        monitoresExternos.find(
+            monitor => monitor.x > 0
+        );
+
+    const monitorEsquerda =
+        monitoresExternos.find(
+            monitor => monitor.x < 0
+        );
+
     const monitorPalco =
+        monitorDireita ||
         monitoresExternos[0] ||
         detalhesMonitores[0];
 
     const monitorRetorno =
-        monitoresExternos[1] ||
-        monitoresExternos[0] ||
-        detalhesMonitores[0];
+        monitorEsquerda ||
+        monitoresExternos.find(
+            monitor => monitor !== monitorPalco
+        ) ||
+        monitorPalco;
 
     if (monitorPalco) {
         elementos.monitorPalco.value =
@@ -1197,6 +1262,61 @@ function iniciarModoExportado() {
 
     window.electronAPI.aoReceberEstado(
         (dados) => {
+
+            if (
+                telaTipo === 'palco' &&
+                !dados.mostrarPalco
+            ) {
+                elementos.timerFase1.style.display =
+                    'none';
+
+                elementos.timerContagem.style.display =
+                    'none';
+
+                return;
+            }
+
+            if (telaTipo === 'retorno') {
+
+                if (!dados.mostrarRetorno) {
+                    elementos.timerFase1.style.display =
+                        'none';
+
+                    elementos.timerContagem.style.display =
+                        'none';
+
+                    return;
+                }
+
+                elementos.timerContagem.style.display =
+                    'none';
+
+                elementos.timerFase1.style.display =
+                    'flex';
+
+                elementos.timerTempo.style.display =
+                    '';
+
+                elementos.timerHora.classList.remove(
+                    'hora-sozinha'
+                );
+
+                elementos.timerTempo.textContent =
+                    dados.tempo;
+
+                elementos.timerHora.textContent =
+                    dados.hora;
+
+                elementos.timerTempo.style.color =
+                    dados.cor;
+
+                elementos.timer.classList.toggle(
+                    'piscar',
+                    dados.aPiscar
+                );
+
+                return;
+            }
 
             const mostrarContagem =
                 dados.fase === 'contagem';
