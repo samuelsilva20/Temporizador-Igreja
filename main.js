@@ -30,7 +30,8 @@ function criarJanelaPrincipal() {
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
-            nodeIntegration: false
+            nodeIntegration: false,
+            backgroundThrottling: false
         }
     });
 
@@ -132,7 +133,8 @@ function criarTelaDeSaida(tipo, monitor) {
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
-            nodeIntegration: false
+            nodeIntegration: false,
+            backgroundThrottling: false
         }
     });
 

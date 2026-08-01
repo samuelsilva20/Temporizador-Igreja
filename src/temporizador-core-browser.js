@@ -3,6 +3,15 @@
     return `${data.getHours().toString().padStart(2, '0')}:${data.getMinutes().toString().padStart(2, '0')}`;
   }
 
+  function aplicarHoraCampo(dataReferencia, valorCampoHora) {
+    const [horas, minutos] = valorCampoHora.split(':').map(Number);
+
+    const data = new Date(dataReferencia);
+    data.setHours(horas, minutos, 0, 0);
+
+    return data;
+  }
+
   function obterProximoSabado(horaInicio, horaFim) {
     const agora = new Date();
     const [hInicio, mInicio] = horaInicio.split(':').map(Number);
@@ -112,6 +121,7 @@
 
   window.temporizadorCore = {
     formatarHora,
+    aplicarHoraCampo,
     obterProximoSabado,
     criarConfiguracaoTemporizador
   };
