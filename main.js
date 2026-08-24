@@ -8,6 +8,15 @@ if (!temBloqueio) {
     app.quit();
 }
 
+// O backgroundThrottling:false (por janela) só cobre janelas escondidas/minimizadas.
+// O Chromium tem um mecanismo separado (Intensive Wake Up Throttling) que continua a
+// atrasar setInterval/setTimeout em janelas visíveis mas sem foco, o que fazia a
+// contagem saltar números ou parar momentaneamente. Desativa-se ao nível da app.
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+app.commandLine.appendSwitch('disable-features', 'IntensiveWakeUpThrottling,CalculateNativeWinOcclusion');
+
 let janelaPrincipal = null;
 const janelasDeSaida = { palco: null, retorno: null };
 let estadoAtual = null;

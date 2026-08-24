@@ -20,6 +20,14 @@ let faseTemporizador = 'parado';
 let ultimoTextoTempo = '';
 let ultimaHoraFormatada = '';
 
+let urlObjetoAudioAtual = null;
+let nomeFicheiroAudioAtual = '';
+let arrastandoTimelineAudio = false;
+let volumeAnteriorAoMute = 1;
+let gatilhoAudioDisparado = false;
+let gatilhoAudioAtivo = false;
+let ultimoTempoAudioExibido = -1;
+
 /*
 Estados possíveis:
 - parado
@@ -58,6 +66,8 @@ const elementos = {
     horaAtivacaoPalco: document.getElementById('hora-ativacao-palco'),
     horaAtivacaoRetorno: document.getElementById('hora-ativacao-retorno'),
 
+    previewPreset: document.getElementById('preview-preset'),
+
     previewFase1: document.getElementById('preview-fase1'),
     previewTempo: document.getElementById('preview-tempo'),
     previewHora: document.getElementById('preview-hora'),
@@ -68,7 +78,24 @@ const elementos = {
 
     estadoMonitor: document.getElementById('estado-monitor'),
     monitorPalco: document.getElementById('monitor-palco'),
-    monitorRetorno: document.getElementById('monitor-retorno')
+    monitorRetorno: document.getElementById('monitor-retorno'),
+
+    audioInput: document.getElementById('audio-input'),
+    audioElemento: document.getElementById('audio-elemento'),
+    audioEstado: document.getElementById('audio-estado'),
+    audioBotaoImportar: document.getElementById('audio-botao-importar'),
+    audioBotaoPlayPause: document.getElementById('audio-botao-play-pause'),
+    audioBotaoStop: document.getElementById('audio-botao-stop'),
+    audioTempoAtual: document.getElementById('audio-tempo-atual'),
+    audioTimeline: document.getElementById('audio-timeline'),
+    audioTempoTotal: document.getElementById('audio-tempo-total'),
+    audioBotaoVolume: document.getElementById('audio-botao-volume'),
+    audioVolumeSlider: document.getElementById('audio-volume'),
+    audioVolumeGrupo: document.getElementById('audio-volume-grupo'),
+    audioVolumePopup: document.getElementById('audio-volume-popup'),
+    audioBotaoGatilho: document.getElementById('audio-botao-gatilho'),
+    audioGatilhoTempo: document.getElementById('audio-gatilho-tempo'),
+    audioGatilhoWrapper: document.getElementById('audio-gatilho-wrapper')
 };
 
 const modoExportado =
@@ -95,6 +122,12 @@ const LIMITES_COR = {
 };
 
 const LIMIAR_EXIBICAO_TEMPO_SEGUNDOS = 60 * 60;
+
+const NOMES_PRESET = {
+    sabado: 'SÁBADO',
+    personalizado: 'PERSONALIZADO',
+    padrao5: 'TESTE'
+};
 
 function progressaoSuave(valor) {
     const valorLimitado = Math.max(0, Math.min(1, valor));
@@ -650,6 +683,13 @@ function validarEIniciar() {
     temporizadorAtivo = true;
     temporizadorPausado = false;
     modoSabadoAtivo = modo === 'sabado';
+    gatilhoAudioDisparado = false;
+
+    elementos.previewPreset.textContent =
+        NOMES_PRESET[modo] || '';
+
+    elementos.previewPreset.style.display =
+        'block';
 
     if (modo === 'sabado') {
         prepararTemporizadorSabado();
@@ -673,10 +713,7 @@ function validarEIniciar() {
 
     atualizarContagem();
 
-    intervalo = setInterval(
-        atualizarContagem,
-        1000
-    );
+    iniciarIntervalo();
 
     atualizarEstadoOperador();
 }
@@ -871,6 +908,8 @@ function atualizarContagem() {
 
     atualizarEstadoOperador();
 
+    verificarGatilhoAudio();
+
     if (tempoRestante === 0) {
         pararIntervalo();
 
@@ -882,9 +921,25 @@ function atualizarContagem() {
     }
 }
 
+function iniciarIntervalo() {
+    const atraso =
+        1000 - (Date.now() % 1000);
+
+    intervalo = setTimeout(
+        () => {
+            atualizarContagem();
+
+            if (intervalo !== null) {
+                iniciarIntervalo();
+            }
+        },
+        atraso
+    );
+}
+
 function pararIntervalo() {
     if (intervalo !== null) {
-        clearInterval(intervalo);
+        clearTimeout(intervalo);
         intervalo = null;
     }
 }
@@ -915,10 +970,7 @@ function alterarTempo(segundos) {
         intervalo === null &&
         tempoRestante > 0
     ) {
-        intervalo = setInterval(
-            atualizarContagem,
-            1000
-        );
+        iniciarIntervalo();
     }
 
     atualizarContagem();
@@ -976,10 +1028,7 @@ function alternarPausa() {
     elementos.timer.classList.remove('piscar');
 
     if (intervalo === null) {
-        intervalo = setInterval(
-            atualizarContagem,
-            1000
-        );
+        iniciarIntervalo();
     }
 
     atualizarContagem();
@@ -1190,6 +1239,277 @@ function atualizarControlosTelas() {
     });
 }
 
+function importarAudio() {
+    elementos.audioInput.click();
+}
+
+function carregarAudioSelecionado() {
+    const ficheiro =
+        elementos.audioInput.files[0];
+
+    if (!ficheiro) {
+        return;
+    }
+
+    pararAudio();
+
+    if (urlObjetoAudioAtual) {
+        URL.revokeObjectURL(urlObjetoAudioAtual);
+    }
+
+    urlObjetoAudioAtual =
+        URL.createObjectURL(ficheiro);
+
+    nomeFicheiroAudioAtual =
+        ficheiro.name;
+
+    desativarControlosAudio();
+
+    elementos.audioEstado.textContent =
+        `A carregar: ${nomeFicheiroAudioAtual}...`;
+
+    elementos.audioElemento.src =
+        urlObjetoAudioAtual;
+
+    elementos.audioInput.value = '';
+}
+
+function aoCarregarMetadadosAudio() {
+    const duracao =
+        Number.isFinite(elementos.audioElemento.duration)
+            ? Math.floor(elementos.audioElemento.duration)
+            : 0;
+
+    elementos.audioTimeline.max = duracao;
+    elementos.audioTimeline.value = 0;
+
+    elementos.audioTempoTotal.textContent =
+        formatarTempo(duracao);
+
+    elementos.audioTempoAtual.textContent =
+        formatarTempo(0);
+
+    ultimoTempoAudioExibido = 0;
+
+    elementos.audioEstado.textContent =
+        nomeFicheiroAudioAtual;
+
+    ativarControlosAudio();
+    atualizarFundoTimelineAudio(0);
+    atualizarSimboloPlayPause();
+}
+
+function aoFalharAudio() {
+    desativarControlosAudio();
+
+    elementos.audioEstado.textContent =
+        `Erro ao carregar o áudio: ${nomeFicheiroAudioAtual}`;
+}
+
+function ativarControlosAudio() {
+    elementos.audioBotaoPlayPause.disabled = false;
+    elementos.audioBotaoStop.disabled = false;
+    elementos.audioTimeline.disabled = false;
+    elementos.audioBotaoVolume.disabled = false;
+    elementos.audioVolumeSlider.disabled = false;
+    elementos.audioBotaoGatilho.disabled = false;
+}
+
+function desativarControlosAudio() {
+    elementos.audioBotaoPlayPause.disabled = true;
+    elementos.audioBotaoStop.disabled = true;
+    elementos.audioTimeline.disabled = true;
+    elementos.audioBotaoVolume.disabled = true;
+    elementos.audioVolumeSlider.disabled = true;
+    elementos.audioBotaoGatilho.disabled = true;
+}
+
+function ajustarVolumeAudio() {
+    const volume =
+        Number(elementos.audioVolumeSlider.value) / 100;
+
+    elementos.audioElemento.volume = volume;
+
+    elementos.audioBotaoVolume.textContent =
+        volume === 0
+            ? '🔇'
+            : '🔊';
+}
+
+function alternarMuteAudio() {
+    if (elementos.audioElemento.volume > 0) {
+        volumeAnteriorAoMute =
+            elementos.audioElemento.volume;
+
+        elementos.audioElemento.volume = 0;
+        elementos.audioVolumeSlider.value = 0;
+        elementos.audioBotaoVolume.textContent = '🔇';
+    } else {
+        elementos.audioElemento.volume = volumeAnteriorAoMute;
+
+        elementos.audioVolumeSlider.value =
+            Math.round(volumeAnteriorAoMute * 100);
+
+        elementos.audioBotaoVolume.textContent = '🔊';
+    }
+}
+
+function verificarGatilhoAudio() {
+    if (
+        !gatilhoAudioAtivo ||
+        gatilhoAudioDisparado
+    ) {
+        return;
+    }
+
+    if (
+        !temporizadorAtivo ||
+        temporizadorPausado ||
+        faseTemporizador === 'parado' ||
+        faseTemporizador === 'aguardandoPublico'
+    ) {
+        return;
+    }
+
+    if (!elementos.audioElemento.src) {
+        return;
+    }
+
+    const valorCampo =
+        elementos.audioGatilhoTempo.value.trim();
+
+    if (!valorCampo) {
+        return;
+    }
+
+    const limiarSegundos =
+        parseDuracaoParaSegundos(valorCampo, -1);
+
+    if (limiarSegundos < 0) {
+        return;
+    }
+
+    if (tempoRestante > limiarSegundos) {
+        return;
+    }
+
+    gatilhoAudioDisparado = true;
+
+    if (elementos.audioElemento.paused) {
+        elementos.audioElemento.play();
+
+        atualizarSimboloPlayPause();
+    }
+}
+
+function mostrarPopupFlutuante(elementoAlvo) {
+    if (elementoAlvo.temporizadorEsconder) {
+        clearTimeout(elementoAlvo.temporizadorEsconder);
+
+        elementoAlvo.temporizadorEsconder = null;
+    }
+
+    elementoAlvo.classList.add('aberto');
+}
+
+function agendarEsconderPopupFlutuante(elementoAlvo) {
+    elementoAlvo.temporizadorEsconder = setTimeout(
+        () => {
+            elementoAlvo.classList.remove('aberto');
+
+            elementoAlvo.temporizadorEsconder = null;
+        },
+        500
+    );
+}
+
+function alternarGatilhoAudioAtivo() {
+    gatilhoAudioAtivo = !gatilhoAudioAtivo;
+
+    elementos.audioBotaoGatilho.classList.toggle(
+        'ativo',
+        gatilhoAudioAtivo
+    );
+}
+
+function atualizarSimboloPlayPause() {
+    const emPausa =
+        elementos.audioElemento.paused;
+
+    if (emPausa) {
+        elementos.audioBotaoPlayPause.textContent = '▶';
+    } else {
+        elementos.audioBotaoPlayPause.innerHTML =
+            '<svg class="audio-pausa-icone" viewBox="0 0 14 18" fill="currentColor">' +
+            '<rect x="0" y="0" width="5" height="18"></rect>' +
+            '<rect x="9" y="0" width="5" height="18"></rect>' +
+            '</svg>';
+    }
+}
+
+function alternarReproducaoAudio() {
+    if (!elementos.audioElemento.src) {
+        return;
+    }
+
+    if (elementos.audioElemento.paused) {
+        elementos.audioElemento.play();
+    } else {
+        elementos.audioElemento.pause();
+    }
+
+    atualizarSimboloPlayPause();
+}
+
+function pararAudio() {
+    elementos.audioElemento.pause();
+    elementos.audioElemento.currentTime = 0;
+
+    atualizarSimboloPlayPause();
+}
+
+function aoTerminarAudio() {
+    elementos.audioEstado.textContent =
+        `Terminado: ${nomeFicheiroAudioAtual}`;
+
+    atualizarSimboloPlayPause();
+}
+
+function aoAtualizarTempoAudio() {
+    if (arrastandoTimelineAudio) {
+        return;
+    }
+
+    const tempoAtual =
+        Math.floor(elementos.audioElemento.currentTime);
+
+    if (tempoAtual === ultimoTempoAudioExibido) {
+        return;
+    }
+
+    ultimoTempoAudioExibido = tempoAtual;
+
+    elementos.audioTimeline.value = tempoAtual;
+
+    elementos.audioTempoAtual.textContent =
+        formatarTempo(tempoAtual);
+
+    atualizarFundoTimelineAudio(tempoAtual);
+}
+
+function atualizarFundoTimelineAudio(valorAtual) {
+    const maximo =
+        Number(elementos.audioTimeline.max) || 0;
+
+    const percentagem =
+        maximo > 0
+            ? (valorAtual / maximo) * 100
+            : 0;
+
+    elementos.audioTimeline.style.background =
+        `linear-gradient(to right, #007bff 0%, #007bff ${percentagem}%, #3a3a3a ${percentagem}%, #3a3a3a 100%)`;
+}
+
 function sairDoTemporizador() {
     if (!temporizadorAtivo) {
         return;
@@ -1391,6 +1711,15 @@ window.addEventListener(
             return;
         }
 
+        const focoEmControloAudio =
+            document.activeElement === elementos.audioBotaoPlayPause ||
+            document.activeElement === elementos.audioBotaoStop ||
+            document.activeElement === elementos.audioTimeline;
+
+        if (focoEmControloAudio) {
+            return;
+        }
+
         if (
             event.code === 'Space' &&
             temporizadorAtivo
@@ -1422,6 +1751,56 @@ if (modoExportado) {
     atualizarCamposPorPreset();
     atualizarPrevisualizacoes(CORES.branco);
     atualizarControlosTelas();
+
+    elementos.audioInput.addEventListener('change', carregarAudioSelecionado);
+    elementos.audioElemento.addEventListener('loadedmetadata', aoCarregarMetadadosAudio);
+    elementos.audioElemento.addEventListener('timeupdate', aoAtualizarTempoAudio);
+    elementos.audioElemento.addEventListener('ended', aoTerminarAudio);
+    elementos.audioElemento.addEventListener('error', aoFalharAudio);
+
+    elementos.audioBotaoPlayPause.addEventListener('click', alternarReproducaoAudio);
+    elementos.audioBotaoStop.addEventListener('click', pararAudio);
+
+    elementos.audioTimeline.addEventListener('input', () => {
+        arrastandoTimelineAudio = true;
+
+        const valor =
+            Number(elementos.audioTimeline.value);
+
+        elementos.audioTempoAtual.textContent =
+            formatarTempo(valor);
+
+        atualizarFundoTimelineAudio(valor);
+    });
+
+    elementos.audioTimeline.addEventListener('change', () => {
+        elementos.audioElemento.currentTime =
+            Number(elementos.audioTimeline.value);
+
+        arrastandoTimelineAudio = false;
+    });
+
+    elementos.audioVolumeSlider.addEventListener('input', ajustarVolumeAudio);
+
+    elementos.audioVolumeGrupo.addEventListener(
+        'mouseenter',
+        () => mostrarPopupFlutuante(elementos.audioVolumePopup)
+    );
+
+    elementos.audioVolumeGrupo.addEventListener(
+        'mouseleave',
+        () => agendarEsconderPopupFlutuante(elementos.audioVolumePopup)
+    );
+
+    elementos.audioGatilhoWrapper.addEventListener(
+        'mouseenter',
+        () => mostrarPopupFlutuante(elementos.audioGatilhoWrapper)
+    );
+
+    elementos.audioGatilhoWrapper.addEventListener(
+        'mouseleave',
+        () => agendarEsconderPopupFlutuante(elementos.audioGatilhoWrapper)
+    );
 
     if (window.electronAPI) {
         window.electronAPI.aoReceberEstadoTelas(
