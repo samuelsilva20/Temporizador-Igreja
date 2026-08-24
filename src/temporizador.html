@@ -18,6 +18,7 @@
         </header>
 
         <main class="layout-operador">
+            <div class="coluna-esquerda">
             <section class="coluna-controlos">
                 <h2>Configuração</h2>
 
@@ -81,9 +82,54 @@
                 <p id="texto-atalhos" class="atalhos">Atalhos: Espaço = pausar · ← / → = −10 s / +10 s · ESC = terminar</p>
             </section>
 
+            <section id="painel-audio">
+                <div class="cabecalho-telas">
+                    <h2>Áudio de Fundo</h2>
+                    <button type="button" class="btn-monitor" id="audio-botao-importar" onclick="importarAudio()" title="Importar Áudio" aria-label="Importar Áudio">📂</button>
+                </div>
+
+                <input type="file" id="audio-input" accept="audio/*" style="display: none;">
+                <audio id="audio-elemento" preload="metadata"></audio>
+
+                <p id="audio-estado" class="estado-audio"></p>
+
+                <div class="audio-timeline-linha">
+                    <span id="audio-tempo-atual" class="audio-tempo">00:00</span>
+                    <input type="range" id="audio-timeline" min="0" max="0" value="0" step="1" disabled>
+                    <span id="audio-tempo-total" class="audio-tempo">00:00</span>
+                </div>
+
+                <div id="controlos-audio" class="controlos-audio">
+                    <div id="audio-volume-grupo" class="audio-volume-grupo">
+                        <button id="audio-botao-volume" class="btn-ajuste btn-audio-icone" disabled title="Volume" aria-label="Volume" onclick="alternarMuteAudio()">🔊</button>
+                        <div id="audio-volume-popup" class="audio-volume-popup">
+                            <input type="range" id="audio-volume" class="audio-volume-slider" min="0" max="100" value="100" disabled>
+                        </div>
+                    </div>
+
+                    <div class="audio-transporte-grupo">
+                        <button id="audio-botao-play-pause" class="btn-ajuste btn-audio-icone" disabled title="Reproduzir / Pausar" aria-label="Reproduzir / Pausar">▶</button>
+                        <button id="audio-botao-stop" class="btn-ajuste btn-audio-icone" disabled title="Parar" aria-label="Parar">⏹</button>
+
+                        <div id="audio-gatilho-wrapper" class="audio-gatilho-wrapper">
+                            <button id="audio-botao-gatilho" class="btn-ajuste btn-audio-icone" disabled title="Ativar / desativar disparo automático" aria-label="Ativar / desativar disparo automático" onclick="alternarGatilhoAudioAtivo()">↻</button>
+                            <div class="painel-flutuante">
+                                <input type="text" id="audio-gatilho-tempo" value="05:00" placeholder="MM:SS">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div></div>
+                </div>
+            </section>
+            </div>
+
             <div class="coluna-direita">
             <section class="coluna-preview-operador">
-                <h2>Preview em execução</h2>
+                <div class="cabecalho-telas cabecalho-preview">
+                    <h2>Preview em execução</h2>
+                    <p id="preview-preset" class="estado-execucao" style="display: none;"></p>
+                </div>
             
                 <div class="preview-operador">
             
