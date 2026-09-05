@@ -24,3 +24,6 @@ Thumbs.db
 # Ficheiros temporários
 *.tmp
 *.temp
+
+# Áudio de fundo do operador (ficheiros pessoais, não fazem parte do projeto)
+audio-local/

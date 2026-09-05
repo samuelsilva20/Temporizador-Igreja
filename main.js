@@ -1,6 +1,9 @@
 const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { pathToFileURL } = require('url');
+
+const EXTENSOES_AUDIO = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac'];
 
 const temBloqueio = app.requestSingleInstanceLock();
 
@@ -57,6 +60,30 @@ function criarJanelaPrincipal() {
         janelaPrincipal = null;
     });
 }
+
+function obterCaminhoAudioLocal() {
+    const base = app.isPackaged
+        ? path.dirname(process.execPath)
+        : __dirname;
+
+    return path.join(base, 'audio-local');
+}
+
+function listarAudiosLocais() {
+    try {
+        return fs.readdirSync(obterCaminhoAudioLocal())
+            .filter((nome) => EXTENSOES_AUDIO.includes(path.extname(nome).toLowerCase()))
+            .sort((a, b) => a.localeCompare(b, 'pt'))
+            .map((nome) => ({
+                nome,
+                url: pathToFileURL(path.join(obterCaminhoAudioLocal(), nome)).toString()
+            }));
+    } catch (erro) {
+        return [];
+    }
+}
+
+ipcMain.handle('listar-audios-locais', () => listarAudiosLocais());
 
 function obterInformacaoMonitores() {
     const monitorPrincipal = screen.getPrimaryDisplay();

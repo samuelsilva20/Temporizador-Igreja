@@ -83,20 +83,27 @@
             </section>
 
             <section id="painel-audio">
-                <div class="cabecalho-telas">
+                <div class="cabecalho-telas cabecalho-audio">
                     <h2>Áudio de Fundo</h2>
+                    <div class="audio-selecao-wrapper" id="audio-selecao-wrapper">
+                        <button type="button" id="audio-selecao-botao" class="audio-selecao-botao" title="Escolher música" aria-label="Escolher música" aria-haspopup="listbox" aria-expanded="false">
+                            <span id="audio-selecao-texto">Escolher música:</span>
+                            <span class="audio-selecao-seta">▾</span>
+                        </button>
+                        <ul id="audio-selecao-lista" class="audio-selecao-lista" role="listbox" hidden>
+                            <li class="audio-selecao-opcao audio-selecao-placeholder" data-valor="" role="option">Escolher música:</li>
+                        </ul>
+                    </div>
                     <button type="button" class="btn-monitor" id="audio-botao-importar" onclick="importarAudio()" title="Importar Áudio" aria-label="Importar Áudio">📂</button>
                 </div>
 
                 <input type="file" id="audio-input" accept="audio/*" style="display: none;">
                 <audio id="audio-elemento" preload="metadata"></audio>
 
-                <p id="audio-estado" class="estado-audio"></p>
-
                 <div class="audio-timeline-linha">
                     <span id="audio-tempo-atual" class="audio-tempo">00:00</span>
                     <input type="range" id="audio-timeline" min="0" max="0" value="0" step="1" disabled>
-                    <span id="audio-tempo-total" class="audio-tempo">00:00</span>
+                    <span id="audio-tempo-total" class="audio-tempo audio-tempo-clicavel" onclick="alternarExibicaoDuracaoAudio()" title="Alternar entre duração total e tempo restante">00:00</span>
                 </div>
 
                 <div id="controlos-audio" class="controlos-audio">
