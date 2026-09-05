@@ -1,6 +1,9 @@
 const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { pathToFileURL } = require('url');
+
+const EXTENSOES_AUDIO = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac'];
 
 const temBloqueio = app.requestSingleInstanceLock();
 
@@ -57,6 +60,30 @@ function criarJanelaPrincipal() {
         janelaPrincipal = null;
     });
 }
+
+function obterCaminhoAudioLocal() {
+    const base = app.isPackaged
+        ? path.dirname(process.execPath)
+        : __dirname;
+
+    return path.join(base, 'audio-local');
+}
+
+function listarAudiosLocais() {
+    try {
+        return fs.readdirSync(obterCaminhoAudioLocal())
+            .filter((nome) => EXTENSOES_AUDIO.includes(path.extname(nome).toLowerCase()))
+            .sort((a, b) => a.localeCompare(b, 'pt'))
+            .map((nome) => ({
+                nome,
+                url: pathToFileURL(path.join(obterCaminhoAudioLocal(), nome)).toString()
+            }));
+    } catch (erro) {
+        return [];
+    }
+}
+
+ipcMain.handle('listar-audios-locais', () => listarAudiosLocais());
 
 function obterInformacaoMonitores() {
     const monitorPrincipal = screen.getPrimaryDisplay();
@@ -127,6 +154,7 @@ function criarTelaDeSaida(tipo, monitor) {
     }
 
     const janela = new BrowserWindow({
+        show: false,
         x: monitor.bounds.x,
         y: monitor.bounds.y,
         width: monitor.bounds.width,
@@ -159,11 +187,31 @@ function criarTelaDeSaida(tipo, monitor) {
 
     janela.loadURL(urlExportada.toString());
 
+    let janelaJaMostrada = false;
+
+    function mostrarJanelaQuandoPronta() {
+        if (janelaJaMostrada || janela.isDestroyed()) {
+            return;
+        }
+
+        janelaJaMostrada = true;
+        janela.show();
+    }
+
     janela.webContents.on('did-finish-load', () => {
+        // Esconde-se até estar em fullscreen com o estado real já aplicado,
+        // para não se ver por instantes o painel do operador (#painel-config)
+        // antes do JS o esconder (iniciarModoExportado()).
         janela.setFullScreen(true);
-        setTimeout(() => {
-            enviarEstadoParaTelas();
-        }, 150);
+        enviarEstadoParaTelas();
+
+        // Rede de segurança: se por algum motivo o evento 'enter-full-screen'
+        // não disparar, a janela não deve ficar escondida para sempre.
+        setTimeout(mostrarJanelaQuandoPronta, 2000);
+    });
+
+    janela.once('enter-full-screen', () => {
+        setTimeout(mostrarJanelaQuandoPronta, 30);
     });
 
     janela.on('closed', () => {

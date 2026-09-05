@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
     detetarMonitores: () => ipcRenderer.invoke('detetar-monitores'),
+    listarAudiosLocais: () => ipcRenderer.invoke('listar-audios-locais'),
     alternarTela: (tipo, idMonitor) =>
         ipcRenderer.invoke('alternar-tela', tipo, idMonitor),
     abrirTela: (tipo, idMonitor) =>

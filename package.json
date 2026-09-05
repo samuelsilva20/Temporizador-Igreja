@@ -8,7 +8,7 @@
 
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win portable"
+    "build": "electron-builder --win zip"
   },
 
   "devDependencies": {
@@ -24,13 +24,18 @@
     "output": "dist"
   },
 
-  "win": {
-    "target": "portable",
-    "icon": "assets/icon.ico"
-  },
+  "files": [
+    "main.js",
+    "preload.js",
+    "package.json",
+    "assets/**/*",
+    "src/**/*",
+    "!src/temporizador-core.js"
+  ],
 
-  "portable": {
-    "artifactName": "Temporizador Igreja.exe"
+  "win": {
+    "target": "zip",
+    "icon": "assets/icon.ico"
   }
 }
 }

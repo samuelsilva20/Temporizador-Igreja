@@ -20,13 +20,13 @@ let faseTemporizador = 'parado';
 let ultimoTextoTempo = '';
 let ultimaHoraFormatada = '';
 
-let urlObjetoAudioAtual = null;
 let nomeFicheiroAudioAtual = '';
 let arrastandoTimelineAudio = false;
 let volumeAnteriorAoMute = 1;
 let gatilhoAudioDisparado = false;
 let gatilhoAudioAtivo = false;
 let ultimoTempoAudioExibido = -1;
+let mostrarTempoRestanteAudio = false;
 
 /*
 Estados possíveis:
@@ -82,8 +82,11 @@ const elementos = {
 
     audioInput: document.getElementById('audio-input'),
     audioElemento: document.getElementById('audio-elemento'),
-    audioEstado: document.getElementById('audio-estado'),
     audioBotaoImportar: document.getElementById('audio-botao-importar'),
+    audioSelecaoWrapper: document.getElementById('audio-selecao-wrapper'),
+    audioSelecaoBotao: document.getElementById('audio-selecao-botao'),
+    audioSelecaoTexto: document.getElementById('audio-selecao-texto'),
+    audioSelecaoLista: document.getElementById('audio-selecao-lista'),
     audioBotaoPlayPause: document.getElementById('audio-botao-play-pause'),
     audioBotaoStop: document.getElementById('audio-botao-stop'),
     audioTempoAtual: document.getElementById('audio-tempo-atual'),
@@ -122,6 +125,10 @@ const LIMITES_COR = {
 };
 
 const LIMIAR_EXIBICAO_TEMPO_SEGUNDOS = 60 * 60;
+
+// Altura suficiente para mostrar "Escolher música:" + 4 músicas; mais do
+// que isso passa a ficar acessível só com scroll dentro da própria lista.
+const ALTURA_MAXIMA_LISTA_AUDIO_PX = 168;
 
 const NOMES_PRESET = {
     sabado: 'SÁBADO',
@@ -1243,6 +1250,70 @@ function importarAudio() {
     elementos.audioInput.click();
 }
 
+function iniciarCarregamentoAudio(nome, src) {
+    pararAudio();
+
+    nomeFicheiroAudioAtual = nome;
+
+    desativarControlosAudio();
+
+    elementos.audioElemento.src = src;
+}
+
+function criarOpcaoAudio(nome, url) {
+    const opcao =
+        document.createElement('li');
+
+    opcao.className = 'audio-selecao-opcao';
+    opcao.dataset.valor = url;
+    opcao.textContent = nome;
+    opcao.setAttribute('role', 'option');
+
+    return opcao;
+}
+
+function abrirListaAudio() {
+    const retanguloBotao =
+        elementos.audioSelecaoBotao.getBoundingClientRect();
+
+    const margem = 8;
+
+    const espacoAbaixo =
+        window.innerHeight - retanguloBotao.bottom - margem;
+
+    elementos.audioSelecaoLista.style.top = `${retanguloBotao.bottom + 4}px`;
+    elementos.audioSelecaoLista.style.left = `${retanguloBotao.left + retanguloBotao.width / 2}px`;
+    elementos.audioSelecaoLista.style.maxHeight = `${Math.max(80, Math.min(ALTURA_MAXIMA_LISTA_AUDIO_PX, espacoAbaixo))}px`;
+
+    elementos.audioSelecaoLista.hidden = false;
+    elementos.audioSelecaoBotao.setAttribute('aria-expanded', 'true');
+}
+
+function fecharListaAudio() {
+    elementos.audioSelecaoLista.hidden = true;
+    elementos.audioSelecaoBotao.setAttribute('aria-expanded', 'false');
+}
+
+function alternarListaAudio() {
+    if (elementos.audioSelecaoLista.hidden) {
+        abrirListaAudio();
+    } else {
+        fecharListaAudio();
+    }
+}
+
+function selecionarOpcaoAudio(opcao) {
+    elementos.audioSelecaoTexto.textContent = opcao.textContent;
+
+    fecharListaAudio();
+
+    if (!opcao.dataset.valor) {
+        return;
+    }
+
+    iniciarCarregamentoAudio(opcao.textContent, opcao.dataset.valor);
+}
+
 function carregarAudioSelecionado() {
     const ficheiro =
         elementos.audioInput.files[0];
@@ -1251,27 +1322,32 @@ function carregarAudioSelecionado() {
         return;
     }
 
-    pararAudio();
-
-    if (urlObjetoAudioAtual) {
-        URL.revokeObjectURL(urlObjetoAudioAtual);
-    }
-
-    urlObjetoAudioAtual =
+    const urlObjeto =
         URL.createObjectURL(ficheiro);
 
-    nomeFicheiroAudioAtual =
-        ficheiro.name;
+    const opcaoImportada =
+        criarOpcaoAudio(ficheiro.name.replace(/\.[^.]+$/, ''), urlObjeto);
 
-    desativarControlosAudio();
-
-    elementos.audioEstado.textContent =
-        `A carregar: ${nomeFicheiroAudioAtual}...`;
-
-    elementos.audioElemento.src =
-        urlObjetoAudioAtual;
+    elementos.audioSelecaoLista.appendChild(opcaoImportada);
+    selecionarOpcaoAudio(opcaoImportada);
 
     elementos.audioInput.value = '';
+}
+
+async function carregarListaAudiosLocais() {
+    if (!window.electronAPI) {
+        return;
+    }
+
+    const audios =
+        await window.electronAPI.listarAudiosLocais();
+
+    audios.forEach(({ nome, url }) => {
+        const opcao =
+            criarOpcaoAudio(nome.replace(/\.[^.]+$/, ''), url);
+
+        elementos.audioSelecaoLista.appendChild(opcao);
+    });
 }
 
 function aoCarregarMetadadosAudio() {
@@ -1283,27 +1359,45 @@ function aoCarregarMetadadosAudio() {
     elementos.audioTimeline.max = duracao;
     elementos.audioTimeline.value = 0;
 
-    elementos.audioTempoTotal.textContent =
-        formatarTempo(duracao);
+    atualizarTextoDuracaoAudio();
 
     elementos.audioTempoAtual.textContent =
         formatarTempo(0);
 
     ultimoTempoAudioExibido = 0;
 
-    elementos.audioEstado.textContent =
-        nomeFicheiroAudioAtual;
-
     ativarControlosAudio();
     atualizarFundoTimelineAudio(0);
     atualizarSimboloPlayPause();
 }
 
+function atualizarTextoDuracaoAudio() {
+    const duracao =
+        Number.isFinite(elementos.audioElemento.duration)
+            ? Math.floor(elementos.audioElemento.duration)
+            : Number(elementos.audioTimeline.max) || 0;
+
+    if (mostrarTempoRestanteAudio) {
+        const tempoAtual =
+            Math.floor(elementos.audioElemento.currentTime);
+
+        elementos.audioTempoTotal.innerHTML =
+            `<span class="audio-tempo-sinal">−</span>${formatarTempo(Math.max(0, duracao - tempoAtual))}`;
+
+        return;
+    }
+
+    elementos.audioTempoTotal.textContent =
+        formatarTempo(duracao);
+}
+
+function alternarExibicaoDuracaoAudio() {
+    mostrarTempoRestanteAudio = !mostrarTempoRestanteAudio;
+    atualizarTextoDuracaoAudio();
+}
+
 function aoFalharAudio() {
     desativarControlosAudio();
-
-    elementos.audioEstado.textContent =
-        `Erro ao carregar o áudio: ${nomeFicheiroAudioAtual}`;
 }
 
 function ativarControlosAudio() {
@@ -1469,9 +1563,6 @@ function pararAudio() {
 }
 
 function aoTerminarAudio() {
-    elementos.audioEstado.textContent =
-        `Terminado: ${nomeFicheiroAudioAtual}`;
-
     atualizarSimboloPlayPause();
 }
 
@@ -1494,6 +1585,7 @@ function aoAtualizarTempoAudio() {
     elementos.audioTempoAtual.textContent =
         formatarTempo(tempoAtual);
 
+    atualizarTextoDuracaoAudio();
     atualizarFundoTimelineAudio(tempoAtual);
 }
 
@@ -1714,7 +1806,8 @@ window.addEventListener(
         const focoEmControloAudio =
             document.activeElement === elementos.audioBotaoPlayPause ||
             document.activeElement === elementos.audioBotaoStop ||
-            document.activeElement === elementos.audioTimeline;
+            document.activeElement === elementos.audioTimeline ||
+            document.activeElement === elementos.audioSelecaoBotao;
 
         if (focoEmControloAudio) {
             return;
@@ -1753,10 +1846,29 @@ if (modoExportado) {
     atualizarControlosTelas();
 
     elementos.audioInput.addEventListener('change', carregarAudioSelecionado);
+
+    elementos.audioSelecaoBotao.addEventListener('click', alternarListaAudio);
+
+    elementos.audioSelecaoLista.addEventListener('click', (evento) => {
+        const opcao = evento.target.closest('.audio-selecao-opcao');
+
+        if (opcao) {
+            selecionarOpcaoAudio(opcao);
+        }
+    });
+
+    document.addEventListener('click', (evento) => {
+        if (!elementos.audioSelecaoWrapper.contains(evento.target)) {
+            fecharListaAudio();
+        }
+    });
+
     elementos.audioElemento.addEventListener('loadedmetadata', aoCarregarMetadadosAudio);
     elementos.audioElemento.addEventListener('timeupdate', aoAtualizarTempoAudio);
     elementos.audioElemento.addEventListener('ended', aoTerminarAudio);
     elementos.audioElemento.addEventListener('error', aoFalharAudio);
+
+    carregarListaAudiosLocais();
 
     elementos.audioBotaoPlayPause.addEventListener('click', alternarReproducaoAudio);
     elementos.audioBotaoStop.addEventListener('click', pararAudio);
